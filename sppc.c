@@ -3,7 +3,9 @@
 #include <shlwapi.h>
 #include "sl.h"
 
+#ifdef PLUS_BUILD
 BOOL bIsHeartbeatRegistryModified = FALSE;
+#endif
 
 BOOL IsGracePeriodProduct(HSLC hSLC, SLID *pProductSkuId) {
     PBYTE pBuffer = 0;
@@ -23,6 +25,7 @@ BOOL IsGracePeriodProduct(HSLC hSLC, SLID *pProductSkuId) {
     return FALSE;
 }
 
+#ifdef PLUS_BUILD
 VOID ModifyHeartbeatRegistry() {
     HKEY hKey = 0;
 
@@ -47,6 +50,7 @@ VOID ModifyHeartbeatRegistry() {
 
     RegCloseKey(hKey);
 }
+#endif
 
 HRESULT WINAPI SLGetLicensingStatusInformationHook(
     HSLC hSLC,
@@ -69,20 +73,25 @@ HRESULT WINAPI SLGetLicensingStatusInformationHook(
         return hResult;
 
     for(int i = 0; i < *pnStatusCount; i++) {
-        if((*ppLicensingStatus+i)->eStatus == 0) continue;
-        if(IsGracePeriodProduct(hSLC, &((*ppLicensingStatus+i)->SkuId))) continue;
+        if((*ppLicensingStatus+i)->eStatus == SL_LICENSING_STATUS_UNLICENSED)
+            continue;
 
-        (*ppLicensingStatus+i)->eStatus = 1;
+        if(IsGracePeriodProduct(hSLC, &((*ppLicensingStatus+i)->SkuId)))
+            continue;
+
+        (*ppLicensingStatus+i)->eStatus = SL_LICENSING_STATUS_LICENSED;
         (*ppLicensingStatus+i)->dwGraceTime = 0;
         (*ppLicensingStatus+i)->dwTotalGraceDays = 0;
         (*ppLicensingStatus+i)->hrReason = 0;
         (*ppLicensingStatus+i)->qwValidityExpiration = 0;
     }
 
+#ifdef PLUS_BUILD
     if(!bIsHeartbeatRegistryModified) {
         ModifyHeartbeatRegistry();
         bIsHeartbeatRegistryModified = TRUE;
     }
+#endif
 
     return hResult;
 }
